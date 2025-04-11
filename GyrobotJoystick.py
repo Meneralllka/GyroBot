@@ -211,15 +211,14 @@ try:
                     move_motors(pos, 0)
             elif hat[0] == 1 and hat[1] == 0:
                 time_start = time.time()
-                while(time.time() - time_start < (t1 + t2)/2):
+                while(time.time() - time_start < t1):
                     time_now = time.time() - time_start
-                    if time_now < t1/2:
                         pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
-                    elif time_now > t1/2:
-                        pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
+                        pos1 = (7/9) * amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
                     else:
                         pos = 0
-                    move_motors(pos, 0)
+                        pos1 = 0
+                    move_motors(pos, pos1)
             elif hat[0] == 0 and hat[1] == -1:
                 time_start = time.time()
                 while(time.time() - time_start < (t1 + t2)/2):
