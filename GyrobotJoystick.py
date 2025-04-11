@@ -4,6 +4,7 @@ import time
 import math
 import odrive
 from odrive.enums import *
+from datetime import datetime  # Added for timestamp
 
 # Dynamixel settings
 MY_DXL = 'P_SERIES'  # Dynamixel model type
@@ -32,6 +33,8 @@ w1 = 2*math.pi/t1
 w2 = 2*math.pi/t2
 amp = 0.5
 odrive_init = False
+logging_active = False  # Track logging state
+log_file = None  # File handle for logging
 
 def degrees_to_position(deg):
     return int((deg / 360.0) * 303454)
@@ -50,35 +53,34 @@ def initialize_odrive():
 
     odrv0 = odrive.find_any()
 
-    odrv0.config.brake_resistance = 2.0  #(based on the resistor used for the Odrive) #this
-    odrv0.config.dc_max_positive_current = 20  #(whatever is the max current that the power supply or the battery can give) #this
-    odrv0.config.dc_max_negative_current = -1  #(whatever is the max current that the power supply or the battery can absorb) #this
-    odrv0.config.max_regen_current = 0  #(usually 0) #this
-    odrv0.config.dc_bus_undervoltage_trip_level = 8.0 #this
-    odrv0.config.dc_bus_overvoltage_trip_level = 25.5  #(the max current that the Odrive can handle) #this
+    odrv0.config.brake_resistance = 2.0
+    odrv0.config.dc_max_positive_current = 20
+    odrv0.config.dc_max_negative_current = -1
+    odrv0.config.max_regen_current = 0
+    odrv0.config.dc_bus_undervoltage_trip_level = 8.0
+    odrv0.config.dc_bus_overvoltage_trip_level = 25.5
     odrv0.save_configuration()
     print('Config 1 pass!')
-    odrv0.axis0.motor.config.motor_type = odrive.utils.MotorType.HIGH_CURRENT #this
-    odrv0.axis0.controller.config.pos_gain = 20 #this
-    odrv0.axis0.controller.config.vel_gain = 0.02 #this
-    odrv0.axis0.controller.config.vel_integrator_gain = 0.01 #this
-    odrv0.axis0.controller.config.control_mode = odrive.utils.ControlMode.VELOCITY_CONTROL #this
-    odrv0.axis0.controller.config.vel_limit = 110 #this
-    odrv0.axis0.motor.config.current_lim = 60 #(depends on motor 80 for gt5323 80) #this
-    odrv0.axis0.motor.config.pole_pairs = 7 #this
-    odrv0.axis0.motor.config.direction = 1 #this
-    odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 5.51328895422 / (7 * 325)  #(7 is the pole pairs of the motor and the 230 is kv) #this
+    odrv0.axis0.motor.config.motor_type = odrive.utils.MotorType.HIGH_CURRENT
+    odrv0.axis0.controller.config.pos_gain = 20
+    odrv0.axis0.controller.config.vel_gain = 0.02
+    odrv0.axis0.controller.config.vel_integrator_gain = 0.01
+    odrv0.axis0.controller.config.control_mode = odrive.utils.ControlMode.VELOCITY_CONTROL
+    odrv0.axis0.controller.config.vel_limit = 110
+    odrv0.axis0.motor.config.current_lim = 60
+    odrv0.axis0.motor.config.pole_pairs = 7
+    odrv0.axis0.motor.config.direction = 1
+    odrv0.axis0.sensorless_estimator.config.pm_flux_linkage = 5.51328895422 / (7 * 325)
     print('I am here!')
     odrv0.axis0.requested_state = odrive.utils.AxisState.MOTOR_CALIBRATION
-    time.sleep(5)#this
+    time.sleep(5)
     print('I am here2!')
     print(str(odrive.utils.dump_errors(odrv0)))
 
-    odrv0.axis0.requested_state = odrive.utils.AxisState.SENSORLESS_CONTROL #this
-
-    odrv0.axis0.config.startup_sensorless_control = True #this
+    odrv0.axis0.requested_state = odrive.utils.AxisState.SENSORLESS_CONTROL
+    odrv0.axis0.config.startup_sensorless_control = True
     print('I am here3!')
-    print(str(odrive.utils.dump_errors(odrv0))) #this
+    print(str(odrive.utils.dump_errors(odrv0)))
     print('I am here4!')
     return odrv0
 
@@ -99,7 +101,6 @@ def initialize_dynamixels():
             print(f"Error enabling torque for motor {dxl_id}: {packetHandler.getRxPacketError(dxl_error)}")
         else:
             print(f"Dynamixel motor {dxl_id} is connected and torque enabled")
-
 
 def move_motors(axis0_value, axis1_value):
     """Convert axis values to Dynamixel positions and move motors."""
@@ -146,7 +147,6 @@ NEG_90 = degrees_to_position(-180)
 
 try:
     while True:
-        #time.sleep(0.2)
         pygame.event.pump()
         hat = joystick.get_hat(0)
         axis_0 = joystick.get_axis(1)  # Axis 0
@@ -157,14 +157,33 @@ try:
         # Convert axis values from [-1,1] to [-40,40]
         axis_0_value = int(axis_0 * 90)
         axis_1_value = int(axis_1 * 90)
-        #print(axis_0_value, axis_1_value, axis_5)
-        #print(buttons)
+
+        # Handle button 10 (start logging)
+        if buttons[10] == 1 and not logging_active:
+            logging_active = True
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = open(f"joystick_log_{timestamp}.txt", "w")
+            log_file.write("Time,Axis_0_Value,Axis_1_Value\n")
+            print(f"Started logging to joystick_log_{timestamp}.txt")
+
+        # Handle button 11 (stop logging)
+        if buttons[11] == 1 and logging_active:
+            logging_active = False
+            if log_file:
+                log_file.close()
+                log_file = None
+                print("Stopped logging and saved file")
+
+        # Log data if logging is active
+        if logging_active and log_file:
+            current_time = time.time()
+            log_file.write(f"{current_time},{axis_0_value},{axis_1_value}\n")
+
         if buttons[12] == 1 and odrive_init == False:
             odrv0 = initialize_odrive()
             odrv0.axis0.controller.input_vel = 0
             print(str(odrive.utils.dump_errors(odrv0)))
         for event in pygame.event.get():
-    
             if event.type == pygame.JOYBUTTONDOWN and (event.button in [7] and event.button not in [6]) and odrive_init == True:
                 if odrv0.axis0.controller.input_vel <= 70:
                     odrv0.axis0.controller.input_vel += 10 
@@ -182,10 +201,8 @@ try:
             if hat[0] == -1 and hat[1] == 0:
                 time_start = time.time()
                 while(time.time() - time_start < (t1 + t2)/2):
-                    #print(time.time() - time_start)
                     time_now = time.time() - time_start
                     if time_now < t1/2:
-                        #int((value / 180) * DXL_MAXIMUM_POSITION_VALUE)
                         pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
                     elif time_now > t1/2:
                         pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
@@ -195,10 +212,8 @@ try:
             elif hat[0] == 1 and hat[1] == 0:
                 time_start = time.time()
                 while(time.time() - time_start < (t1 + t2)/2):
-                    #print(time.time() - time_start)
                     time_now = time.time() - time_start
                     if time_now < t1/2:
-                        #int((value / 180) * DXL_MAXIMUM_POSITION_VALUE)
                         pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
                     elif time_now > t1/2:
                         pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
@@ -208,10 +223,8 @@ try:
             elif hat[0] == 0 and hat[1] == -1:
                 time_start = time.time()
                 while(time.time() - time_start < (t1 + t2)/2):
-                    #print(time.time() - time_start)
                     time_now = time.time() - time_start
                     if time_now < t1/2:
-                        #int((value / 180) * DXL_MAXIMUM_POSITION_VALUE)
                         pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
                     elif time_now > t1/2:
                         pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
@@ -221,10 +234,8 @@ try:
             elif hat[0] == 0 and hat[1] == 1:
                 time_start = time.time()
                 while(time.time() - time_start < (t1 + t2)/2):
-                    #print(time.time() - time_start)
                     time_now = time.time() - time_start
                     if time_now < t1/2:
-                        #int((value / 180) * DXL_MAXIMUM_POSITION_VALUE)
                         pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
                     elif time_now > t1/2:
                         pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
@@ -247,10 +258,11 @@ try:
                 move_motor_pattern(1, NEG_90)
                 time.sleep(0.8)
                     
-        
 except KeyboardInterrupt:
     print("Exiting...")
     for dxl_id in DXL_ID:
         packetHandler.write1ByteTxRx(portHandler, dxl_id, ADDR_TORQUE_ENABLE, TORQUE_DISABLE)
     portHandler.closePort()
+    if logging_active and log_file:
+        log_file.close()  # Ensure file is closed on exit
     pygame.quit()
