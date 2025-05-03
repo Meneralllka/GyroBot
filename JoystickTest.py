@@ -1,4 +1,5 @@
 import pygame
+from RPLCD.i2c import CharLCD
 from dynamixel_sdk import *  # Uses Dynamixel SDK library
 import time
 import math
@@ -6,6 +7,12 @@ import odrive
 from odrive.enums import *
 from datetime import datetime  # Added for timestamp
 
+LCD_ENABLE = 0
+if LCD_ENABLE:
+    lcd = CharLCD('PCF8574', 0x27)
+    lcd.write_string("Loading...")
+    time.sleep(3)
+    lcd.clear()
 # Dynamixel settings
 MY_DXL = 'P_SERIES'  # Dynamixel model type
 ADDR_TORQUE_ENABLE = 512
@@ -27,9 +34,10 @@ portHandler = PortHandler(DEVICENAME)
 packetHandler = PacketHandler(PROTOCOL_VERSION)
 groupSyncWrite = GroupSyncWrite(portHandler, packetHandler, ADDR_GOAL_POSITION, LEN_GOAL_POSITION)
 
-t1 = 1.5
-t2 = 18
+t1 = 1.0
+t2 = 3.0
 w1 = 2 * math.pi / t1
+w11 = math.pi
 w2 = 2 * math.pi / t2
 amp = 0.5
 odrive_init = False
@@ -170,6 +178,7 @@ initialize_dynamixels()
 
 POS_90 = degrees_to_position(180)
 NEG_90 = degrees_to_position(-180)
+input_vel_prev = None
 
 try:
     while True:
@@ -183,7 +192,13 @@ try:
         # Convert axis values from [-1,1] to [-40,40]
         axis_0_value = int(axis_0 * 90)
         axis_1_value = int(axis_1 * 90)
-
+        try:
+            if odrv0.axis0.controller.input_vel != input_vel_prev and LCD_ENABLE:
+                lcd.clear()
+                lcd.write_string('Gyro Vel: ' + str(odrv0.axis0.controller.input_vel))
+                input_vel_prev = odrv0.axis0.controller.input_vel
+        except Exception:
+            pass
         # Handle button 10 (start logging)
         if buttons[10] == 1 and not logging_active:
             logging_active = True
@@ -242,9 +257,9 @@ try:
             elif hat[0] == 1 and hat[1] == 0:
                 time_start = time.time()
                 while (time.time() - time_start < t1):
-                    time_now = time.time() - time_start
-                    pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
-                    pos1 = (7 / 9) * amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
+                    time_now = time.time() % 10000
+                    pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w11 * time_now)
+                    pos1 = -amp * 0.111 * DXL_MAXIMUM_POSITION_VALUE * math.cos(w11 * time_now)
                     move_motors(pos, pos1)
                     # Log when hat button is pressed
                     if logging_active and log_file:
@@ -256,33 +271,37 @@ try:
                 while (time.time() - time_start < (t1 + t2) / 2):
                     time_now = time.time() - time_start
                     if time_now < t1 / 2:
-                        pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
+                        pos = 0.667 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w1 * time_now) + 0.5)
+                        pos2 = 0.5 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w1 * time_now) + 1)
                     elif time_now > t1 / 2:
-                        pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now - t1 / 2))
+                        pos = -0.667 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w2 * (time_now - t1 / 2)) - 0.5)
+                        pos2 = -0.5 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w2 * (time_now - t1 / 2)) - 1)
                     else:
                         pos = 0
-                    move_motors(0, pos)
+                    move_motors(pos, -pos)
                     # Log when hat button is pressed
                     if logging_active and log_file:
                         current_time = time.time()
                         present_positions = read_motor_positions()
-                        log_file.write(f"{current_time},0,{pos},{present_positions[0]},{present_positions[1]}\n")
+                        log_file.write(f"{current_time},{pos},{-pos},{present_positions[0]},{present_positions[1]}\n")
             elif hat[0] == 0 and hat[1] == 1:
                 time_start = time.time()
                 while (time.time() - time_start < (t1 + t2) / 2):
                     time_now = time.time() - time_start
                     if time_now < t1 / 2:
-                        pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
+                        pos = 0.667 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w1 * time_now) + 0.5)
+                        pos2 = 0.5 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w1 * time_now) + 1)
                     elif time_now > t1 / 2:
-                        pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now - t1 / 2))
+                        pos = -0.667 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w2 * (time_now - t1 / 2)) - 0.5)
+                        pos2 = -0.5 * amp * DXL_MAXIMUM_POSITION_VALUE * (math.cos(w2 * (time_now - t1 / 2)) - 1)
                     else:
                         pos = 0
-                    move_motors(0, pos)
+                    move_motors(pos, pos)
                     # Log when hat button is pressed
                     if logging_active and log_file:
                         current_time = time.time()
                         present_positions = read_motor_positions()
-                        log_file.write(f"{current_time},0,{pos},{present_positions[0]},{present_positions[1]}\n")
+                        log_file.write(f"{current_time},{pos},{pos},{present_positions[0]},{present_positions[1]}\n")
 
         if buttons[4] == 1:
             for i in range(5):
