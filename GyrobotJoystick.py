@@ -44,6 +44,21 @@ odrive_init = False
 logging_active = False  # Track logging state
 log_file = None  # File handle for logging
 
+m1 = -175
+m2 = 90
+a1 = -m1/2
+a2 = m2/2
+a3 = -a2
+c1 = 90
+d1 = -90
+d2 = c1
+t11 = (d1 - c1 - 0.5 * m1) / m1
+t22 = t11 + 1
+t33 = t22 + 1
+c2 = 0.5 * m2 - m2 * t33 + d1
+t44 = (-0.5 * m2 + d2 -c2) / m2
+t55 = t44 + 1
+
 def degrees_to_position(deg):
     return int((deg / 360.0) * 303454)
 
@@ -215,15 +230,23 @@ try:
                 move_motors(int((axis_0_value / 180) * DXL_MAXIMUM_POSITION_VALUE), int((axis_1_value / 180) * DXL_MAXIMUM_POSITION_VALUE))
             if hat[0] == -1 and hat[1] == 0:
                 time_start = time.time()
-                while(time.time() - time_start < (t1 + t2)/2):
+                while(time.time() - time_start < 5): #poly spline
                     time_now = time.time() - time_start
-                    if time_now < t1/2:
-                        pos = -amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w1 * time_now)
-                    elif time_now > t1/2:
-                        pos = amp * DXL_MAXIMUM_POSITION_VALUE * math.cos(w2 * (time_now-t1/2))
+                    if time_now < t11: # y1
+                        pos = m1 * time_now + c1
+                    elif t11 <= time_now < t22: # y2
+                        pos = a1 * (time_now - t22) ** 2 + d1
+                    elif t22 <= time_now < t33: # y3
+                        pos = a2 * (time_now - t22) ** 2 + d1
+                    elif t33 <= time_now < t44: # y4
+                        pos = m2 * time_now + c2
+                    elif t44 <= time_now < t55: # y5
+                        pos = a3 * (time_now - t55) ** 2 + d2
+                    elif t55 <= time_now < 5:
+                        pos = c1
                     else:
                         pos = 0
-                    move_motors(pos, 0)
+                    move_motors(int((pos / 180) * DXL_MAXIMUM_POSITION_VALUE), 0)
             elif hat[0] == 1 and hat[1] == 0:
                 time_start = time.time()
                 while(time.time() - time_start < t1):
