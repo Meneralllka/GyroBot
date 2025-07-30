@@ -44,7 +44,7 @@ odrive_init = False
 logging_active = False  # Track logging state
 log_file = None  # File handle for logging
 
-m1 = -175
+m1 = -350
 m2 = 90
 a1 = -m1/2
 a2 = m2/2
