@@ -18,7 +18,7 @@ def calibrate_motors() -> tuple[can.Bus, list[Motor]]:
     GPIO.setmode(GPIO.BCM)
     
     # Initialize motors with their respective limit switch pins
-    motors = [Motor(can_id=0x00, limit_switch_pin=16), Motor(can_id=0x01, limit_switch_pin=12)]
+    motors = [Motor(can_id=0x00, limit_switch_pin=12), Motor(can_id=0x01, limit_switch_pin=16)]
     
     # Setup GPIO pins for both motors
     for motor in motors:
