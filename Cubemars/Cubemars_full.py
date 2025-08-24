@@ -166,13 +166,14 @@ def initialize_odrive():
 
 
 def main():
-    m1 = -
-    c1 = math.pi/4
-    d1 = -math.pi/4
+    m1 = -14
+    c1 = math.pi/2
+    d1 = -math.pi/2
     t1 = 0.2
     t2 = -t1 + 2*(d1-c1)/m1
     a1 = 0.5 * m1/(t1 - t2)
     move_en = False
+    move_mode = 0
     print(m1, c1, d1, t1, t2, a1)
     odrv0 = initialize_odrive()
     time.sleep(10)
@@ -210,7 +211,23 @@ def main():
                         if hat[0] == -1 and hat[1] == 0 and not move_en:
                             time_start = time.time()
                             move_en = True
-                            coeffs = generate_quintic_trajectory(d1, c1, 3 - t2)
+                            move_mode = 1
+                            coeffs = generate_quintic_trajectory(d1, c1, 2 - t2)
+                        if hat[0] == 1 and hat[1] == 0 and not move_en:
+                            time_start = time.time()
+                            move_en = True
+                            move_mode = 2
+                            coeffs = generate_quintic_trajectory(d1, c1, 2 - t2)
+                        if hat[0] == 0 and hat[1] == -1 and not move_en:
+                            time_start = time.time()
+                            move_en = True
+                            move_mode = 3
+                            coeffs = generate_quintic_trajectory(d1, c1, 2 - t2)
+                        if hat[0] == 0 and hat[1] == 1 and not move_en:
+                            time_start = time.time()
+                            move_en = True
+                            move_mode = 4
+                            coeffs = generate_quintic_trajectory(d1, c1, 2 - t2)
                         if not move_en:
                             motor.p_in = vals[i] # Set desired position
                             #motor.v_in = vel_func(t)  # Set desired velocity
@@ -220,20 +237,48 @@ def main():
                         elif time.time() - time_start < 3 and move_en:
                             time_now = time.time() - time_start
                             if time_now <= t1:
-                                pos = m1*time.time() + c1
+                                pos = m1*time_now + c1
                             elif t1 < time_now <= t2:
                                 pos = a1*(time_now - t2)**2 + d1
                             elif time_now > t2:
                                 t = time_now - t2
                                 pos = coeffs[0] + coeffs[1]*t + coeffs[2]*t**2 + coeffs[3]*t**3 + coeffs[4]*t**4 + coeffs[5]*t**5
-                            if i == 0:
-                                motor.p_in = pos # Set desired position
-                            else: 
-                                motor.p_in = 0
-                            #motor.v_in = vel_func(t)  # Set desired velocity
-                            motor.kp_in = 30.0        # Position gain
-                            motor.kd_in = 2.0         # Damping gain
-                            pack_cmd(bus, motor)      # Send command to motor
+                            if move_mode == 1:
+                                if i == 0:
+                                    motor.p_in = pos # Set desired position
+                                else:
+                                    motor.p_in = 0
+                                #motor.v_in = vel_func(t)  # Set desired velocity
+                                motor.kp_in = 30.0        # Position gain
+                                motor.kd_in = 2.0         # Damping gain
+                                pack_cmd(bus, motor)      # Send command to motor
+                            elif move_mode == 2:
+                                if i == 1:
+                                    motor.p_in = pos # Set desired position
+                                else:
+                                    motor.p_in = 0
+                                #motor.v_in = vel_func(t)  # Set desired velocity
+                                motor.kp_in = 30.0        # Position gain
+                                motor.kd_in = 2.0         # Damping gain
+                                pack_cmd(bus, motor)      # Send command to motor
+                            elif move_mode == 3:
+                                if i == 0:
+                                    motor.p_in = pos # Set desired position
+                                else:
+                                    motor.p_in = math.pi/2
+                                #motor.v_in = vel_func(t)  # Set desired velocity
+                                motor.kp_in = 30.0        # Position gain
+                                motor.kd_in = 2.0         # Damping gain
+                                pack_cmd(bus, motor)      # Send command to motor
+                            elif move_mode == 4:
+                                if i == 1:
+                                    motor.p_in = pos # Set desired position
+                                else:
+                                    motor.p_in = math.pi/2
+                                #motor.v_in = vel_func(t)  # Set desired velocity
+                                motor.kp_in = 30.0        # Position gain
+                                motor.kd_in = 2.0         # Damping gain
+                                pack_cmd(bus, motor)      # Send command to motor
                         elif time.time() - time_start > 3:
                             move_en = False
                     #time.sleep(0.01)
