@@ -242,10 +242,12 @@ def main():
                                 pos = a1*(time_now - t2)**2 + d1
                             elif time_now > t2:
                                 t = time_now - t2
-                                pos = coeffs[0] + coeffs[1]*t + coeffs[2]*t**2 + coeffs[3]*t**3 + coeffs[4]*t**4 + coeffs[5]*t**5
+                                if coeffs is not None:
+                                    pos = coeffs[0] + coeffs[1]*t + coeffs[2]*t**2 + coeffs[3]*t**3 + coeffs[4]*t**4 + coeffs[5]*t**5
+                                    print(pos)
                             if move_mode == 1:
                                 if i == 0:
-                                    motor.p_in = pos # Set desired position
+                                    motor.p_in = max(min(pos, 3.14*0.5), -3.14*0.5) # Set desired position
                                 else:
                                     motor.p_in = 0
                                 #motor.v_in = vel_func(t)  # Set desired velocity
@@ -254,7 +256,7 @@ def main():
                                 pack_cmd(bus, motor)      # Send command to motor
                             elif move_mode == 2:
                                 if i == 1:
-                                    motor.p_in = pos # Set desired position
+                                    motor.p_in = max(min(pos, 3.14*0.5), -3.14*0.5) # Set desired position
                                 else:
                                     motor.p_in = 0
                                 #motor.v_in = vel_func(t)  # Set desired velocity
@@ -263,7 +265,7 @@ def main():
                                 pack_cmd(bus, motor)      # Send command to motor
                             elif move_mode == 3:
                                 if i == 0:
-                                    motor.p_in = pos # Set desired position
+                                    motor.p_in = max(min(pos, 3.14*0.5), -3.14*0.5) # Set desired position
                                 else:
                                     motor.p_in = math.pi/2
                                 #motor.v_in = vel_func(t)  # Set desired velocity
@@ -272,7 +274,7 @@ def main():
                                 pack_cmd(bus, motor)      # Send command to motor
                             elif move_mode == 4:
                                 if i == 1:
-                                    motor.p_in = pos # Set desired position
+                                    motor.p_in = max(min(pos, 3.14*0.5), -3.14*0.5) # Set desired position
                                 else:
                                     motor.p_in = math.pi/2
                                 #motor.v_in = vel_func(t)  # Set desired velocity
